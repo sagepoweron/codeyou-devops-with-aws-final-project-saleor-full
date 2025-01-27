@@ -1,0 +1,78 @@
+services:
+  api:
+    build:
+      context: ./saleor-api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - shared_media:/app/media
+    environment:
+      ALLOWED_HOSTS: localhost,api,dashboard
+    depends_on:
+      - db
+      - redis
+      - jaeger
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  dashboard:
+    build:
+      context: ./saleor-dashboard
+      dockerfile: Dockerfile
+    container_name: dashboard
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    depends_on:
+      - api
+#    healthcheck:
+#      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 3
+
+  db:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - saleor-db:/var/lib/postgresql/data
+      - ./init/replica_user.sql:/docker-entrypoint-initdb.d/replica_user.sql
+    environment:
+      - POSTGRES_USER=saleor_user
+      - POSTGRES_PASSWORD=saleor_password
+    restart: unless-stopped
+#    healthcheck:
+#      test: ["CMD", "pg_isready"]
+#      interval: 30s
+#      timeout: 10s
+#      retries: 3
+
+  redis:
+    image: redis:7.0-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - saleor-redis:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  saleor-db:
+    driver: local
+  saleor-redis:
+    driver: local
+  saleor_media:
+    driver: local
+
+networks:
+  saleor-backend-tier:
+    driver: bridge
