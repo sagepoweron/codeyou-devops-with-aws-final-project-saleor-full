@@ -1,4 +1,4 @@
-FROM node:18-alpine as builder
+FROM node:18-alpine AS builder
 
 RUN apk update && apk add --no-cache bash
 
@@ -42,10 +42,9 @@ ENV LOCALE_CODE ${LOCALE_CODE:-EN}
 RUN npm run build
 
 
-FROM nginx:stable-alpine as runner
+FROM nginx:stable-alpine AS runner
 WORKDIR /app
 
 COPY --from=builder /app/build/ /app/
 COPY ./nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY ./nginx/replace-env-vars.sh /docker-entrypoint.d/50-replace-env-vars.sh
-
