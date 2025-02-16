@@ -3,21 +3,26 @@ services:
     build:
       context: ./saleor-api
       dockerfile: Dockerfile
+    container_name: api
     ports:
       - "8000:8000"
     volumes:
-      - shared_media:/app/media
+      - saleor_media:/app/media
     environment:
       ALLOWED_HOSTS: localhost,api,dashboard
+      STATIC_URL: "/static/"
+      DASHBOARD_URL: http://dashboard:9000 
+      DATABASE_URL: "postgres://saleor_user:saleor_password@db:5432/saleor_db"
     depends_on:
       - db
       - redis
-      - jaeger
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - saleor-backend-tier
 
   dashboard:
     build:
@@ -29,14 +34,21 @@ services:
       - "9000:9000"
     depends_on:
       - api
-#    healthcheck:
-#      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-#      interval: 30s
-#      timeout: 10s
-#      retries: 3
+    environment:
+      - API_URL=http://api:8000/graphql/
+#      - APP_MOUNT_URI=/dashboard/
+#      - STATIC_URL=/static/
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - saleor-backend-tier
 
   db:
     image: postgres:15-alpine
+    container_name: db
     ports:
       - "5432:5432"
     volumes:
@@ -45,12 +57,15 @@ services:
     environment:
       - POSTGRES_USER=saleor_user
       - POSTGRES_PASSWORD=saleor_password
+      - POSTGRES_DB=saleor_db
     restart: unless-stopped
 #    healthcheck:
 #      test: ["CMD", "pg_isready"]
 #      interval: 30s
 #      timeout: 10s
 #      retries: 3
+    networks:
+      - saleor-backend-tier
 
   redis:
     image: redis:7.0-alpine
@@ -64,6 +79,8 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - saleor-backend-tier
 
 volumes:
   saleor-db:
